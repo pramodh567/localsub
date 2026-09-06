@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Local Live Subtitles",
+  "version": "0.1.0",
+  "description": "Private, on-device English subtitle translation for the current tab.",
+  "minimum_chrome_version": "116",
+  "action": { "default_title": "Local Live Subtitles", "default_popup": "index.html" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["activeTab", "tabCapture", "offscreen", "scripting", "storage", "downloads", "unlimitedStorage"],
+  "content_security_policy": { "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'; connect-src https://huggingface.co" },
+  "web_accessible_resources": [{ "resources": ["assets/*", "chunks/*"], "matches": ["<all_urls>"] }]
+}

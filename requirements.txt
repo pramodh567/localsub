@@ -1,0 +1,3 @@
+# This project is a TypeScript browser extension. It has no Python runtime
+# dependencies and therefore does not use a Python virtual environment.
+# Install JavaScript dependencies with: npm.cmd install
