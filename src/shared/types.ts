@@ -25,7 +25,9 @@ export type ExtensionMessage =
   | { type: 'GET_STATE' }
   | { type: 'EXPORT_SRT' }
   | { type: 'OFFSCREEN_READY' }
+  | { type: 'OFFSCREEN_PING' }
   | { type: 'START_CAPTURE'; streamId: string; tabId: number; language: SpokenLanguage }
+  | { type: 'CAPTURE_READY'; tabId: number }
   | { type: 'STOP_CAPTURE' }
   | { type: 'INFERENCE_STATUS'; backend?: 'webgpu' | 'wasm'; message: string }
   | { type: 'CUE'; cue: SubtitleCue }

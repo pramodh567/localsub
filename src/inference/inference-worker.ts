@@ -56,7 +56,10 @@ function append(samples: Float32Array): void {
 }
 
 async function transcribeWindow(window: Float32Array, startSample: number): Promise<void> {
-  if (!recognizer || stopped) return;
+  if (!recognizer || stopped) {
+    busy = false;
+    return;
+  }
   busy = true;
   try {
     const result = await recognizer(window, {
