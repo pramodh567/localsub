@@ -38,6 +38,10 @@ Load `dist/` using **chrome://extensions** or **brave://extensions**, enable Dev
 - `content.ts`: overlay UI and primary-video detection.
 - `popup.ts`: explicit Start/Stop, model status, and SRT download.
 
+## Spoken-language selection
+
+The popup saves only your preferred primary spoken-language hint: Auto-detect, English, Hindi, or Japanese. All options create English captions. Auto-detect is appropriate for unknown or heavily mixed languages. English uses a separately pinned English-only Whisper Tiny model; Hindi and Japanese use the multilingual model with a language hint. Occasional English words in Japanese audio will not crash the extension, though mixed-language transcription can be less accurate.
+
 ## Limitations
 
 - Caption latency depends on the device and audio. The fast five-second overlapping window is designed for responsive local captions, not perfect transcription.

@@ -1,11 +1,11 @@
-import type { ExtensionMessage } from '../shared/types';
+import type { ExtensionMessage, SpokenLanguage } from '../shared/types';
 
 let stream: MediaStream | undefined;
 let context: AudioContext | undefined;
 let node: AudioWorkletNode | undefined;
 let inference: Worker | undefined;
 
-async function startCapture(streamId: string): Promise<void> {
+async function startCapture(streamId: string, language: SpokenLanguage): Promise<void> {
   await stopCapture();
   stream = await navigator.mediaDevices.getUserMedia({
     audio: { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: streamId } } as MediaTrackConstraints,
@@ -23,7 +23,7 @@ async function startCapture(streamId: string): Promise<void> {
   node.port.onmessage = ({ data }) => {
     if (data.type === 'pcm') inference?.postMessage({ type: 'PCM', samples: data.samples }, [data.samples]);
   };
-  inference.postMessage({ type: 'INITIALIZE' });
+  inference.postMessage({ type: 'INITIALIZE', language });
 }
 
 async function stopCapture(): Promise<void> {
@@ -35,7 +35,7 @@ async function stopCapture(): Promise<void> {
 }
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
-  if (message.type === 'START_CAPTURE') void startCapture(message.streamId).catch((error) =>
+  if (message.type === 'START_CAPTURE') void startCapture(message.streamId, message.language).catch((error) =>
     chrome.runtime.sendMessage({ type: 'CAPTURE_ERROR', message: error instanceof Error ? error.message : 'Unable to access tab audio.' })
   );
   if (message.type === 'STOP_CAPTURE') void stopCapture();

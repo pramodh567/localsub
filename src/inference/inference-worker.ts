@@ -1,7 +1,7 @@
 import { env, pipeline } from '@huggingface/transformers';
 import { mergeOverlap } from '../shared/captions';
-import { MODEL_HOST, MODEL_ID, MODEL_REVISION } from '../shared/model';
-import type { SubtitleCue } from '../shared/types';
+import { MODEL_HOST, transcriptionProfile } from '../shared/model';
+import type { SpokenLanguage, SubtitleCue } from '../shared/types';
 
 type RecognitionPipeline = (audio: Float32Array, options: object) => Promise<{ text?: string }>;
 type CreatePipeline = (task: string, model: string, options: Record<string, unknown>) => Promise<RecognitionPipeline>;
@@ -16,6 +16,7 @@ let recognizer: RecognitionPipeline | undefined;
 let lastText = '';
 let busy = false;
 let stopped = false;
+let profile = transcriptionProfile('auto');
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
@@ -23,13 +24,14 @@ env.remoteHost = MODEL_HOST;
 
 function post(message: object): void { self.postMessage(message); }
 
-async function initialize(): Promise<void> {
+async function initialize(language: SpokenLanguage): Promise<void> {
   stopped = false;
+  profile = transcriptionProfile(language);
   const useWebGpu = 'gpu' in navigator;
   const load = async (device: 'webgpu' | 'wasm') => {
     post({ type: 'INFERENCE_STATUS', backend: device, message: 'Downloading or loading the local speech model…' });
-    recognizer = await createPipeline('automatic-speech-recognition', MODEL_ID, {
-      revision: MODEL_REVISION,
+    recognizer = await createPipeline('automatic-speech-recognition', profile.modelId, {
+      revision: profile.revision,
       device,
       dtype: 'q8',
       progress_callback: (progress: { status?: string; file?: string; progress?: number }) => {
@@ -58,8 +60,8 @@ async function transcribeWindow(window: Float32Array, startSample: number): Prom
   busy = true;
   try {
     const result = await recognizer(window, {
-      task: 'translate',
-      language: null,
+      task: profile.task,
+      ...(profile.language ? { language: profile.language } : {}),
       return_timestamps: true,
       chunk_length_s: 5,
       stride_length_s: 1.5
@@ -95,8 +97,8 @@ async function processPending(): Promise<void> {
   await transcribeWindow(window, start);
 }
 
-self.onmessage = ({ data }: MessageEvent<{ type: string; samples?: ArrayBuffer }>) => {
-  if (data.type === 'INITIALIZE') void initialize().catch((error) => post({ type: 'CAPTURE_ERROR', message: error instanceof Error ? error.message : 'Model initialization failed.' }));
+self.onmessage = ({ data }: MessageEvent<{ type: string; samples?: ArrayBuffer; language?: SpokenLanguage }>) => {
+  if (data.type === 'INITIALIZE') void initialize(data.language ?? 'auto').catch((error) => post({ type: 'CAPTURE_ERROR', message: error instanceof Error ? error.message : 'Model initialization failed.' }));
   if (data.type === 'PCM' && data.samples) { append(new Float32Array(data.samples)); void processPending(); }
   if (data.type === 'STOP') stopped = true;
 };

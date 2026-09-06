@@ -1,5 +1,5 @@
 import { toSrt } from '../shared/captions';
-import type { ExtensionMessage, SessionSnapshot, SubtitleCue } from '../shared/types';
+import type { ExtensionMessage, SessionSnapshot, SpokenLanguage, SubtitleCue } from '../shared/types';
 
 let session: SessionSnapshot = { status: 'idle', cues: [] };
 let offscreenCreating: Promise<void> | undefined;
@@ -21,9 +21,9 @@ async function sendToTab(type: 'SHOW_OVERLAY' | 'HIDE_OVERLAY', tabId?: number):
   try { await chrome.tabs.sendMessage(tabId, { type }); } catch { /* the page may not allow injection */ }
 }
 
-async function start(tabId: number): Promise<void> {
+async function start(tabId: number, language: SpokenLanguage): Promise<void> {
   if (session.status === 'running' || session.status === 'starting') return;
-  session = { status: 'starting', tabId, startedAt: Date.now(), cues: [], message: 'Preparing local model…' };
+  session = { status: 'starting', tabId, language, startedAt: Date.now(), cues: [], message: 'Preparing local model…' };
   await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
   await ensureOffscreen();
   const streamId = await new Promise<string>((resolve, reject) => {
@@ -32,7 +32,7 @@ async function start(tabId: number): Promise<void> {
       if (error) reject(new Error(error.message)); else resolve(id);
     });
   });
-  await chrome.runtime.sendMessage({ type: 'START_CAPTURE', streamId, tabId } satisfies ExtensionMessage);
+  await chrome.runtime.sendMessage({ type: 'START_CAPTURE', streamId, tabId, language } satisfies ExtensionMessage);
   session.status = 'running';
   await sendToTab('SHOW_OVERLAY', tabId);
 }
@@ -57,7 +57,7 @@ function exportSrt(): void {
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, respond) => {
   void (async () => {
     try {
-      if (message.type === 'START') await start(message.tabId);
+      if (message.type === 'START') await start(message.tabId, message.language);
       if (message.type === 'STOP') await stop();
       if (message.type === 'GET_STATE') { respond(session); return; }
       if (message.type === 'EXPORT_SRT') exportSrt();

@@ -1,4 +1,5 @@
 export type SessionStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'error';
+export type SpokenLanguage = 'auto' | 'en' | 'hi' | 'ja';
 
 export interface SubtitleCue {
   id: string;
@@ -13,17 +14,18 @@ export interface SessionSnapshot {
   tabId?: number;
   startedAt?: number;
   backend?: 'webgpu' | 'wasm';
+  language?: SpokenLanguage;
   message?: string;
   cues: SubtitleCue[];
 }
 
 export type ExtensionMessage =
-  | { type: 'START'; tabId: number }
+  | { type: 'START'; tabId: number; language: SpokenLanguage }
   | { type: 'STOP' }
   | { type: 'GET_STATE' }
   | { type: 'EXPORT_SRT' }
   | { type: 'OFFSCREEN_READY' }
-  | { type: 'START_CAPTURE'; streamId: string; tabId: number }
+  | { type: 'START_CAPTURE'; streamId: string; tabId: number; language: SpokenLanguage }
   | { type: 'STOP_CAPTURE' }
   | { type: 'INFERENCE_STATUS'; backend?: 'webgpu' | 'wasm'; message: string }
   | { type: 'CUE'; cue: SubtitleCue }
