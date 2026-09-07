@@ -7,8 +7,8 @@
   "action": { "default_title": "Local Live Subtitles", "default_popup": "index.html" },
   "background": { "service_worker": "background.js", "type": "module" },
   "permissions": ["activeTab", "tabCapture", "offscreen", "scripting", "storage", "downloads", "unlimitedStorage"],
-  "content_security_policy": { 
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; object-src 'self'; worker-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://*.aws.cdn.hf.co" 
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "web_accessible_resources": [{ "resources": ["assets/*", "chunks/*"], "matches": ["<all_urls>"] }]
 }

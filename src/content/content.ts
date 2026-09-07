@@ -1,49 +1,98 @@
-import type { ExtensionMessage, SubtitleCue } from '../shared/types';
+(() => {
+  const ROOT_ID = "local-live-subtitles-root";
+  let rootElement: HTMLElement | null = null;
+  let textSpan: HTMLElement | null = null;
+  let dragOffset = { x: 0, y: 0 };
 
-const ROOT_ID = 'local-live-subtitles-root';
-let root: HTMLDivElement | undefined;
-let caption: HTMLDivElement | undefined;
-let dragOffset = { x: 0, y: 0 };
+  function createOverlay() {
+    if (rootElement) return;
+    const existing = document.getElementById(ROOT_ID);
+    if (existing) {
+      rootElement = existing;
+      textSpan = document.getElementById(ROOT_ID + "-text");
+      return;
+    }
 
-function createOverlay(): void {
-  if (root) return;
-  const existing = document.getElementById(ROOT_ID) as HTMLDivElement | null;
-  if (existing) {
-    root = existing;
-    caption = existing.firstElementChild as HTMLDivElement;
-    return;
+    rootElement = document.createElement("div");
+    rootElement.id = ROOT_ID;
+    rootElement.style.cssText = "position:fixed;z-index:2147483647;left:0;right:0;bottom:10%;display:none;pointer-events:none;text-align:center;width:100%;display:flex;justify-content:center;";
+
+    const container = document.createElement("div");
+    container.setAttribute("role", "status");
+    container.setAttribute("aria-live", "polite");
+    // ==========================================
+    // UI TWEAK: Professional Line Breaking
+    // text-wrap: balance guarantees perfectly centered, equal lines
+    // max-width ensures sentences stack correctly
+    // ==========================================
+    container.style.cssText = "display:inline-flex;align-items:center;justify-content:center;max-width:75%;padding:12px 24px;border-radius:12px;background:rgba(0,0,0,0.85);color:white;font:600 24px/1.4 system-ui,sans-serif;text-shadow:0 2px 4px rgba(0,0,0,0.9);pointer-events:auto;cursor:move;box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); text-wrap: balance; text-align: center;";
+
+    textSpan = document.createElement("span");
+    textSpan.id = ROOT_ID + "-text";
+    textSpan.style.cssText = "flex-grow:1; text-align:center;";
+
+    const closeBtn = document.createElement("span");
+    closeBtn.innerHTML = "&times;";
+    closeBtn.title = "Stop Captions";
+    closeBtn.style.cssText = "margin-left:24px; cursor:pointer; font-size:32px; line-height:20px; color:#9ca3af; transition:color 0.2s; user-select:none;";
+    closeBtn.onmouseover = () => closeBtn.style.color = "white";
+    closeBtn.onmouseout = () => closeBtn.style.color = "#9ca3af";
+    
+    closeBtn.onclick = () => {
+      rootElement!.style.display = "none";
+      chrome.runtime.sendMessage({ type: "STOP" }); 
+    };
+
+    container.addEventListener("pointerdown", (i) => {
+      if (i.target === closeBtn) return;
+      const r = container.getBoundingClientRect();
+      dragOffset = { x: i.clientX - r.left, y: i.clientY - r.top };
+      container.setPointerCapture(i.pointerId);
+    });
+
+    container.addEventListener("pointermove", (i) => {
+      if (container.hasPointerCapture(i.pointerId)) {
+        // Fix dragging to move the container freely
+        rootElement!.style.left = `${i.clientX - dragOffset.x}px`;
+        rootElement!.style.right = "auto";
+        rootElement!.style.bottom = `${window.innerHeight - i.clientY + dragOffset.y}px`;
+        rootElement!.style.width = "auto"; 
+      }
+    });
+
+    container.appendChild(textSpan);
+    container.appendChild(closeBtn);
+    rootElement.appendChild(container);
+
+    appendOverlayToDOM();
   }
-  root = document.createElement('div');
-  root.id = ROOT_ID;
-  root.style.cssText = 'position:fixed;z-index:2147483647;left:10%;right:10%;bottom:9%;display:none;pointer-events:none;font:600 20px/1.35 system-ui,sans-serif;text-align:center;color:white;text-shadow:0 2px 5px #000;';
-  caption = document.createElement('div');
-  caption.setAttribute('role', 'status'); caption.setAttribute('aria-live', 'polite');
-  caption.style.cssText = 'display:inline-block;max-width:100%;padding:8px 13px;border-radius:7px;background:rgba(0,0,0,.78);pointer-events:auto;cursor:move;';
-  caption.addEventListener('pointerdown', (event) => {
-    const rect = root!.getBoundingClientRect(); dragOffset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    caption!.setPointerCapture(event.pointerId);
-  });
-  caption.addEventListener('pointermove', (event) => {
-    if (!caption!.hasPointerCapture(event.pointerId)) return;
-    root!.style.left = `${Math.max(0, event.clientX - dragOffset.x)}px`; root!.style.right = 'auto'; root!.style.bottom = `${Math.max(0, window.innerHeight - event.clientY + dragOffset.y)}px`;
-  });
-  root.append(caption); document.documentElement.append(root);
-}
 
-function primaryVideo(): HTMLVideoElement | undefined {
-  return [...document.querySelectorAll('video')].filter((video) => video.offsetParent).sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
-}
-
-createOverlay();
-chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
-  if (message.type === 'SHOW_OVERLAY') root!.style.display = 'block';
-  if (message.type === 'HIDE_OVERLAY') root!.style.display = 'none';
-  if (message.type === 'CUE') {
-    const cue: SubtitleCue = message.cue; caption!.textContent = cue.text;
+  function appendOverlayToDOM() {
+    if (!rootElement) return;
+    let targetParent = document.fullscreenElement || document.body;
+    if (targetParent.tagName.toLowerCase() === 'video') {
+      targetParent = targetParent.parentElement || document.body;
+    }
+    targetParent.appendChild(rootElement);
   }
-});
 
-window.setInterval(() => {
-  const video = primaryVideo();
-  if (video) void chrome.runtime.sendMessage({ type: 'TIMELINE', currentTimeMs: video.currentTime * 1_000 } satisfies ExtensionMessage);
-}, 1_000);
+  document.addEventListener('fullscreenchange', appendOverlayToDOM);
+
+  createOverlay();
+
+  chrome.runtime.onMessage.addListener((t) => {
+    if ((t.type === "HIDE_OVERLAY" || t.type === "STOP") && rootElement) {
+        rootElement.style.display = "none";
+        textSpan!.textContent = "";
+    }
+    
+    if (t.type === "CUE" && textSpan && rootElement) {
+      if (t.cue.text) {
+          rootElement.style.display = "flex";
+          textSpan.textContent = t.cue.text;
+      } else {
+          rootElement.style.display = "none";
+      }
+    }
+  });
+})();
